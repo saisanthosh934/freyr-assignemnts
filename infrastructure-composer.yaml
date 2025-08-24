@@ -1,0 +1,436 @@
+Transform: AWS::Composer
+Resources:
+  # Consumer VPC
+  ConsumerVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.10.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: santhosh-freyr-consumer-vpc
+
+  ConsumerPrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref ConsumerVPC
+      CidrBlock: 10.10.1.0/24
+      AvailabilityZone: ap-south-1a
+      Tags:
+        - Key: Name
+          Value: santhosh-freyr-consumer-private-subnet-a
+
+  # App1 VPC
+  App1VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.20.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: santhosh-freyr-app1-vpc
+
+  App1PrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref App1VPC
+      CidrBlock: 10.20.1.0/24
+      AvailabilityZone: ap-south-1a
+      Tags:
+        - Key: Name
+          Value: santhosh-freyr-app1-private-subnet-a
+
+  App1PrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref App1VPC
+      CidrBlock: 10.20.2.0/24
+      AvailabilityZone: ap-south-1b
+      Tags:
+        - Key: Name
+          Value: santhosh-freyr-app1-private-subnet-b
+
+  # App2 VPC
+  App2VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.30.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: santhosh-freyr-app2-vpc
+
+  App2PrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref App2VPC
+      CidrBlock: 10.30.1.0/24
+      AvailabilityZone: ap-south-1a
+      Tags:
+        - Key: Name
+          Value: santhosh-freyr-app2-private-subnet-a
+
+  App2PrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref App2VPC
+      CidrBlock: 10.30.2.0/24
+      AvailabilityZone: ap-south-1b
+      Tags:
+        - Key: Name
+          Value: santhosh-freyr-app2-private-subnet-b
+
+  # Transit Gateway
+  TransitGateway:
+    Type: AWS::EC2::TransitGateway
+    Properties:
+      Description: santhosh-freyr-tgw
+      Tags:
+        - Key: Name
+          Value: santhosh-freyr-tgw
+
+  # Transit Gateway Attachments
+  ConsumerTGWAttachment:
+    Type: AWS::EC2::TransitGatewayVpcAttachment
+    Properties:
+      TransitGatewayId: !Ref TransitGateway
+      VpcId: !Ref ConsumerVPC
+      SubnetIds:
+        - !Ref ConsumerPrivateSubnetA
+      Tags:
+        - Key: Name
+          Value: santhosh-freyr-consumer-tgw-attach
+
+  App1TGWAttachment:
+    Type: AWS::EC2::TransitGatewayVpcAttachment
+    Properties:
+      TransitGatewayId: !Ref TransitGateway
+      VpcId: !Ref App1VPC
+      SubnetIds:
+        - !Ref App1PrivateSubnetA
+      Tags:
+        - Key: Name
+          Value: santhosh-freyr-app1-tgw-attach
+
+  App2TGWAttachment:
+    Type: AWS::EC2::TransitGatewayVpcAttachment
+    Properties:
+      TransitGatewayId: !Ref TransitGateway
+      VpcId: !Ref App2VPC
+      SubnetIds:
+        - !Ref App2PrivateSubnetA
+      Tags:
+        - Key: Name
+          Value: santhosh-freyr-app2-tgw-attach
+
+  # Security Groups
+  ConsumerLambdaSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for consumer lambda
+      VpcId: !Ref ConsumerVPC
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 10.0.0.0/8
+      Tags:
+        - Key: Name
+          Value: santhosh-freyr-consumer-lambda-sg
+
+  App1LambdaSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for app1 lambda
+      VpcId: !Ref App1VPC
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 10.0.0.0/8
+      Tags:
+        - Key: Name
+          Value: santhosh-freyr-app1-lambda-sg
+
+  App2LambdaSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for app2 lambda
+      VpcId: !Ref App2VPC
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 10.0.0.0/8
+      Tags:
+        - Key: Name
+          Value: santhosh-freyr-app2-lambda-sg
+
+  App1ALBSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for app1 ALB
+      VpcId: !Ref App1VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 10.10.0.0/16
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: santhosh-freyr-app1-alb-sg
+
+  App2ALBSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for app2 ALB
+      VpcId: !Ref App2VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 10.10.0.0/16
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: santhosh-freyr-app2-alb-sg
+
+  # Lambda Execution Roles
+  ConsumerLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: santhosh-freyr-consumer-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+
+  App1LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: santhosh-freyr-app1-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+
+  App2LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: santhosh-freyr-app2-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+
+  # Lambda Functions
+  ConsumerLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: santhosh-freyr-consumer-lambda
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt ConsumerLambdaRole.Arn
+      Timeout: 30
+      Code:
+        ZipFile: |
+          import json
+          import urllib3
+          
+          def handler(event, context):
+              if 'test_connectivity' in event:
+                  http = urllib3.PoolManager()
+                  results = {}
+                  
+                  alb_urls = event.get('alb_urls', {})
+                  for app, url in alb_urls.items():
+                      try:
+                          resp = http.request('GET', url)
+                          results[app] = {'status': resp.status, 'data': resp.data.decode()}
+                      except Exception as e:
+                          results[app] = {'error': str(e)}
+                  
+                  return {'statusCode': 200, 'body': json.dumps(results)}
+              
+              return {
+                  'statusCode': 200,
+                  'headers': {'Content-Type': 'application/json'},
+                  'body': json.dumps({'message': 'Hello from Consumer Lambda!'})
+              }
+      VpcConfig:
+        SubnetIds:
+          - !Ref ConsumerPrivateSubnetA
+        SecurityGroupIds:
+          - !Ref ConsumerLambdaSG
+
+  App1Lambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: santhosh-freyr-app1-lambda
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt App1LambdaRole.Arn
+      Timeout: 30
+      Code:
+        ZipFile: |
+          import json
+          
+          def handler(event, context):
+              return {
+                  'statusCode': 200,
+                  'headers': {'Content-Type': 'application/json'},
+                  'body': json.dumps({'message': 'Hello from App1 Lambda!'})
+              }
+      VpcConfig:
+        SubnetIds:
+          - !Ref App1PrivateSubnetA
+        SecurityGroupIds:
+          - !Ref App1LambdaSG
+
+  App2Lambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: santhosh-freyr-app2-lambda
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt App2LambdaRole.Arn
+      Timeout: 30
+      Code:
+        ZipFile: |
+          import json
+          
+          def handler(event, context):
+              return {
+                  'statusCode': 200,
+                  'headers': {'Content-Type': 'application/json'},
+                  'body': json.dumps({'message': 'Hello from App2 Lambda!'})
+              }
+      VpcConfig:
+        SubnetIds:
+          - !Ref App2PrivateSubnetA
+        SecurityGroupIds:
+          - !Ref App2LambdaSG
+
+  # Application Load Balancers
+  App1ALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: santhosh-freyr-app1-alb
+      Type: application
+      Scheme: internal
+      SecurityGroups:
+        - !Ref App1ALBSG
+      Subnets:
+        - !Ref App1PrivateSubnetA
+        - !Ref App1PrivateSubnetB
+
+  App2ALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: santhosh-freyr-app2-alb
+      Type: application
+      Scheme: internal
+      SecurityGroups:
+        - !Ref App2ALBSG
+      Subnets:
+        - !Ref App2PrivateSubnetA
+        - !Ref App2PrivateSubnetB
+
+  # Target Groups
+  App1TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: santhosh-freyr-app1-tg
+      TargetType: lambda
+      Targets:
+        - Id: !GetAtt App1Lambda.Arn
+
+  App2TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: santhosh-freyr-app2-tg
+      TargetType: lambda
+      Targets:
+        - Id: !GetAtt App2Lambda.Arn
+
+  # ALB Listeners
+  App1Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref App1ALB
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref App1TargetGroup
+
+  App2Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref App2ALB
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref App2TargetGroup
+
+  # Lambda Permissions for ALB
+  App1LambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref App1Lambda
+      Action: lambda:InvokeFunction
+      Principal: elasticloadbalancing.amazonaws.com
+      SourceArn: !Ref App1TargetGroup
+
+  App2LambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref App2Lambda
+      Action: lambda:InvokeFunction
+      Principal: elasticloadbalancing.amazonaws.com
+      SourceArn: !Ref App2TargetGroup
+
+Outputs:
+  ConsumerVPCId:
+    Value: !Ref ConsumerVPC
+  App1VPCId:
+    Value: !Ref App1VPC
+  App2VPCId:
+    Value: !Ref App2VPC
+  TransitGatewayId:
+    Value: !Ref TransitGateway
+  App1ALBDNSName:
+    Value: !GetAtt App1ALB.DNSName
+  App2ALBDNSName:
+    Value: !GetAtt App2ALB.DNSName
